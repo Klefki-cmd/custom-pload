@@ -25,7 +25,7 @@ jobs:
             ["juma-sayeh/PS5-Game-Compressor"]="Game Compressor|game-compressor.elf|Compression"
             ["Phoenixx1202/LegacyJB"]="LegacyJB|LegacyJB.elf|Jailbreak"
             ["notmaj0r/ProsperoMgr"]="Prospero Manager|ProsperoMgr.elf|Manager"
-            ["saawant12/orbit-store-ps5"]="Orbit Store|orbit_store.elf|Store"
+            ["Phoenixx1202/Spectrum-Library"]="Spectrum Library|Spectrum-Library.elf|Library"
             ["pegasus-ps5/pegasus-dl"]="Pegasus DL|pegasus_dl.elf|Downloader"
           )
 
