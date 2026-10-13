@@ -1,2 +1,2 @@
 # custom-pload
-Automated payload JSON for manager custom sources
+Automated pload JSON for manager custom sources
