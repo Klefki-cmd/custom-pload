@@ -1,4 +1,44 @@
 {
   "name": "My PS5 Payloads",
-  "payloads": []
+  "payloads": [
+    {
+      "name": "Prospero Manager",
+      "filename": "ProsperoMgr.elf",
+      "url": "https://github.com/notmaj0r/ProsperoMgr/releases/download/v1.1/ProsperoMgr.elf",
+      "version": "v1.1",
+      "category": "Manager"
+    }
+,
+    {
+      "name": "Game Compressor",
+      "filename": "game-compressor.elf",
+      "url": "https://github.com/juma-sayeh/PS5-Game-Compressor/releases/download/v1.0.4/game-compressor.elf",
+      "version": "v1.0.4",
+      "category": "Compression"
+    }
+,
+    {
+      "name": "LegacyJB",
+      "filename": "LegacyJB.elf",
+      "url": "https://github.com/Phoenixx1202/LegacyJB/releases/download/1.2.1/LegacyJB.elf",
+      "version": "1.2.1",
+      "category": "Jailbreak"
+    }
+,
+    {
+      "name": "LZ4 Compression",
+      "filename": "lz4-compression.elf",
+      "url": "https://github.com/theghostonline/PS5-LZ4-Compression/releases/download/v1.4.2/lz4-compression.elf",
+      "version": "v1.4.2",
+      "category": "Compression"
+    }
+,
+    {
+      "name": "Pegasus DL",
+      "filename": "pegasus_dl.elf",
+      "url": "https://github.com/pegasus-ps5/pegasus-dl/releases/download/v1.11.0/pegasus_dl.elf",
+      "version": "v1.11.0",
+      "category": "Downloader"
+    }
+  ]
 }
