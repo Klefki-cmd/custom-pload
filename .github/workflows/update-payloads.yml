@@ -1,0 +1,81 @@
+name: Update payloads.json
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Fetch latest releases and rebuild payloads.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          declare -A REPOS=(
+            ["theghostonline/PS5-LZ4-Compression"]="LZ4 Compression|lz4-compression.elf|Compression"
+            ["juma-sayeh/PS5-Game-Compressor"]="Game Compressor|game-compressor.elf|Compression"
+            ["Phoenixx1202/LegacyJB"]="LegacyJB|LegacyJB.elf|Jailbreak"
+            ["notmaj0r/ProsperoMgr"]="Prospero Manager|ProsperoMgr.elf|Manager"
+            ["saawant12/orbit-store-ps5"]="Orbit Store|orbit_store.elf|Store"
+            ["pegasus-ps5/pegasus-dl"]="Pegasus DL|pegasus_dl.elf|Downloader"
+          )
+
+          echo '{' > payloads.json
+          echo '  "name": "My PS5 Payloads",' >> payloads.json
+          echo '  "payloads": [' >> payloads.json
+
+          FIRST=1
+          for repo in "${!REPOS[@]}"; do
+            IFS='|' read -r NAME FILE CATEGORY <<< "${REPOS[$repo]}"
+            RELEASE=$(curl -s -H "Authorization: token $GH_TOKEN" \
+              "https://api.github.com/repos/$repo/releases/latest")
+
+            TAG=$(echo "$RELEASE" | jq -r '.tag_name // empty')
+            if [ -z "$TAG" ]; then
+              echo "Skipping $repo (no release)" >&2
+              continue
+            fi
+
+            URL=$(echo "$RELEASE" | jq -r --arg f "$FILE" \
+              '.assets[] | select(.name == $f) | .browser_download_url' | head -n1)
+
+            if [ -z "$URL" ]; then
+              echo "Skipping $repo (asset $FILE not found)" >&2
+              continue
+            fi
+
+            if [ $FIRST -eq 0 ]; then echo ',' >> payloads.json; fi
+            FIRST=0
+
+            cat >> payloads.json <<EOF
+              {
+                "name": "$NAME",
+                "filename": "$FILE",
+                "url": "$URL",
+                "version": "$TAG",
+                "category": "$CATEGORY"
+              }
+          EOF
+          done
+
+          echo '  ]' >> payloads.json
+          echo '}' >> payloads.json
+
+          cat payloads.json
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add payloads.json
+          git diff --staged --quiet || git commit -m "chore: update payloads.json"
+          git push
