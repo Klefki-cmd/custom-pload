@@ -1,44 +1,83 @@
-{
-  "name": "My PS5 Payloads",
-  "payloads": [
-    {
-      "name": "Prospero Manager",
-      "filename": "ProsperoMgr.elf",
-      "url": "https://github.com/notmaj0r/ProsperoMgr/releases/download/v1.1/ProsperoMgr.elf",
-      "version": "v1.1",
-      "category": "Manager"
-    }
-,
-    {
-      "name": "Game Compressor",
-      "filename": "game-compressor.elf",
-      "url": "https://github.com/juma-sayeh/PS5-Game-Compressor/releases/download/v1.0.4/game-compressor.elf",
-      "version": "v1.0.4",
-      "category": "Compression"
-    }
-,
-    {
-      "name": "LegacyJB",
-      "filename": "LegacyJB.elf",
-      "url": "https://github.com/Phoenixx1202/LegacyJB/releases/download/1.2.1/LegacyJB.elf",
-      "version": "1.2.1",
-      "category": "Jailbreak"
-    }
-,
-    {
-      "name": "LZ4 Compression",
-      "filename": "lz4-compression.elf",
-      "url": "https://github.com/theghostonline/PS5-LZ4-Compression/releases/download/v1.5.0/lz4-compression.elf",
-      "version": "v1.5.0",
-      "category": "Compression"
-    }
-,
-    {
-      "name": "Pegasus DL",
-      "filename": "pegasus_dl.elf",
-      "url": "https://github.com/pegasus-ps5/pegasus-dl/releases/download/v1.11.0/pegasus_dl.elf",
-      "version": "v1.11.0",
-      "category": "Downloader"
-    }
-  ]
-}
+name: Update payloads.json
+
+on:
+  schedule:
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Fetch latest releases and rebuild payloads.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          declare -A REPOS=(
+            ["theghostonline/PS5-LZ4-Compression"]="LZ4 Compression|lz4-compression.elf|Compression|LZ4 compression for games, done entirely on the PS5."
+            ["juma-sayeh/PS5-Game-Compressor"]="Game Compressor|game-compressor.elf|Compression|Standalone PS5 payload for compressing, unpacking, validating, and repairing ShadowMountPlus-mounted games."
+            ["Phoenixx1202/LegacyJB"]="LegacyJB|LegacyJB.elf|Jailbreak|PS5 payload that provides a jailbreak service for supported applications."
+            ["notmaj0r/ProsperoMgr"]="Prospero Manager|ProsperoMgr.elf|Manager|All-In-One manager for your PS5."
+            ["Phoenixx1202/Spectrum-Library"]="Spectrum Library|Spectrum-Library.elf|Library|Lightweight native PlayStation 5 content manager."
+            ["pegasus-ps5/pegasus-dl"]="Pegasus DL|pegasus_dl.elf|Downloader|Direct package downloading from your PS5."
+          )
+
+          echo '{' > payloads.json
+          echo '  "name": "My PS5 Payloads",' >> payloads.json
+          echo '  "payloads": [' >> payloads.json
+
+          FIRST=1
+          for repo in "${!REPOS[@]}"; do
+            IFS='|' read -r NAME FILEPAT CATEGORY DESC <<< "${REPOS[$repo]}"
+            RELEASE=$(curl -s -H "Authorization: token $GH_TOKEN" \
+              "https://api.github.com/repos/$repo/releases/latest")
+
+            TAG=$(echo "$RELEASE" | jq -r '.tag_name // empty')
+            if [ -z "$TAG" ]; then
+              echo "Skipping $repo (no release)" >&2
+              continue
+            fi
+
+            URL=$(echo "$RELEASE" | jq -r --arg f "$FILEPAT" \
+              '.assets[] | select(.name == $f) | .browser_download_url' | head -n1)
+
+            if [ -z "$URL" ]; then
+              echo "Skipping $repo (asset $FILEPAT not found)" >&2
+              continue
+            fi
+
+            if [ $FIRST -eq 0 ]; then echo ',' >> payloads.json; fi
+            FIRST=0
+
+            cat >> payloads.json <<EOF
+              {
+                "name": "$NAME",
+                "filename": "$FILEPAT",
+                "url": "$URL",
+                "version": "$TAG",
+                "category": "$CATEGORY",
+                "description": "$DESC"
+              }
+          EOF
+          done
+
+          echo '  ]' >> payloads.json
+          echo '}' >> payloads.json
+
+          cat payloads.json
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add payloads.json
+          git diff --staged --quiet || git commit -m "chore: update payloads.json"
+          git pull --rebase origin main
+          git push
