@@ -6,7 +6,8 @@
       "filename": "ProsperoMgr.elf",
       "url": "https://github.com/notmaj0r/ProsperoMgr/releases/download/v1.1/ProsperoMgr.elf",
       "version": "v1.1",
-      "category": "Manager"
+      "category": "Manager",
+      "description": "All-In-One manager for your PS5."
     }
 ,
     {
@@ -14,7 +15,8 @@
       "filename": "game-compressor.elf",
       "url": "https://github.com/juma-sayeh/PS5-Game-Compressor/releases/download/v1.0.4/game-compressor.elf",
       "version": "v1.0.4",
-      "category": "Compression"
+      "category": "Compression",
+      "description": "Standalone PS5 payload for compressing, unpacking, validating, and repairing ShadowMountPlus-mounted games."
     }
 ,
     {
@@ -22,7 +24,8 @@
       "filename": "LegacyJB.elf",
       "url": "https://github.com/Phoenixx1202/LegacyJB/releases/download/1.2.1/LegacyJB.elf",
       "version": "1.2.1",
-      "category": "Jailbreak"
+      "category": "Jailbreak",
+      "description": "PS5 payload that provides a jailbreak service for supported applications."
     }
 ,
     {
@@ -30,7 +33,8 @@
       "filename": "lz4-compression.elf",
       "url": "https://github.com/theghostonline/PS5-LZ4-Compression/releases/download/v1.5.0/lz4-compression.elf",
       "version": "v1.5.0",
-      "category": "Compression"
+      "category": "Compression",
+      "description": "LZ4 compression for games, done entirely on the PS5."
     }
 ,
     {
@@ -38,7 +42,8 @@
       "filename": "pegasus_dl.elf",
       "url": "https://github.com/pegasus-ps5/pegasus-dl/releases/download/v1.11.0/pegasus_dl.elf",
       "version": "v1.11.0",
-      "category": "Downloader"
+      "category": "Downloader",
+      "description": "Direct package downloading from your PS5."
     }
   ]
 }
