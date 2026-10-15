@@ -21,12 +21,12 @@ jobs:
         run: |
           set -e
           declare -A REPOS=(
-            ["theghostonline/PS5-LZ4-Compression"]="LZ4 Compression|lz4-compression.elf|Compression"
-            ["juma-sayeh/PS5-Game-Compressor"]="Game Compressor|game-compressor.elf|Compression"
-            ["Phoenixx1202/LegacyJB"]="LegacyJB|LegacyJB.elf|Jailbreak"
-            ["notmaj0r/ProsperoMgr"]="Prospero Manager|ProsperoMgr.elf|Manager"
-            ["Phoenixx1202/Spectrum-Library"]="Spectrum Library|Spectrum-Library.elf|Library"
-            ["pegasus-ps5/pegasus-dl"]="Pegasus DL|pegasus_dl.elf|Downloader"
+            ["theghostonline/PS5-LZ4-Compression"]="LZ4 Compression|lz4-compression.elf|Compression|LZ4 compression for games, done entirely on the PS5."
+            ["juma-sayeh/PS5-Game-Compressor"]="Game Compressor|game-compressor.elf|Compression|Standalone PS5 payload for compressing, unpacking, validating, and repairing ShadowMountPlus-mounted games."
+            ["Phoenixx1202/LegacyJB"]="LegacyJB|LegacyJB.elf|Jailbreak|PS5 payload that provides a jailbreak service for supported applications."
+            ["notmaj0r/ProsperoMgr"]="Prospero Manager|ProsperoMgr.elf|Manager|All-In-One manager for your PS5."
+            ["Phoenixx1202/Spectrum-Library"]="Spectrum Library|Spectrum-Library.elf|Library|Lightweight native PlayStation 5 content manager."
+            ["pegasus-ps5/pegasus-dl"]="Pegasus DL|pegasus_dl.elf|Downloader|Direct package downloading from your PS5."
           )
 
           echo '{' > payloads.json
@@ -35,7 +35,7 @@ jobs:
 
           FIRST=1
           for repo in "${!REPOS[@]}"; do
-            IFS='|' read -r NAME FILE CATEGORY <<< "${REPOS[$repo]}"
+            IFS='|' read -r NAME FILEPAT CATEGORY DESC <<< "${REPOS[$repo]}"
             RELEASE=$(curl -s -H "Authorization: token $GH_TOKEN" \
               "https://api.github.com/repos/$repo/releases/latest")
 
@@ -45,11 +45,11 @@ jobs:
               continue
             fi
 
-            URL=$(echo "$RELEASE" | jq -r --arg f "$FILE" \
+            URL=$(echo "$RELEASE" | jq -r --arg f "$FILEPAT" \
               '.assets[] | select(.name == $f) | .browser_download_url' | head -n1)
 
             if [ -z "$URL" ]; then
-              echo "Skipping $repo (asset $FILE not found)" >&2
+              echo "Skipping $repo (asset $FILEPAT not found)" >&2
               continue
             fi
 
@@ -59,10 +59,11 @@ jobs:
             cat >> payloads.json <<EOF
               {
                 "name": "$NAME",
-                "filename": "$FILE",
+                "filename": "$FILEPAT",
                 "url": "$URL",
                 "version": "$TAG",
-                "category": "$CATEGORY"
+                "category": "$CATEGORY",
+                "description": "$DESC"
               }
           EOF
           done
