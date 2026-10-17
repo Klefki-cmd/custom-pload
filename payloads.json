@@ -29,15 +29,6 @@
     }
 ,
     {
-      "name": "LZ4 Compression",
-      "filename": "lz4-compression.elf",
-      "url": "https://github.com/theghostonline/PS5-LZ4-Compression/releases/download/v1.5.0/lz4-compression.elf",
-      "version": "v1.5.0",
-      "category": "Compression",
-      "description": "LZ4 compression for games, done entirely on the PS5."
-    }
-,
-    {
       "name": "Pegasus DL",
       "filename": "pegasus_dl.elf",
       "url": "https://github.com/pegasus-ps5/pegasus-dl/releases/download/v1.11.0/pegasus_dl.elf",
