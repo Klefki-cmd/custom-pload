@@ -36,5 +36,14 @@
       "category": "Downloader",
       "description": "Direct package downloading from your PS5."
     }
+,
+    {
+      "name": "exFAT2AMPR",
+      "filename": "exfat2ampr.elf",
+      "url": "https://github.com/exFAT2AMPR/exfat2ampr/releases/download/v1.104/exfat2ampr.elf",
+      "version": "v1.104",
+      "category": "Compression",
+      "description": "Convert PS5 game dumps to AMPR LZ4."
+    }
   ]
 }
