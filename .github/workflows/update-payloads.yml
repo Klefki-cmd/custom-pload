@@ -21,12 +21,12 @@ jobs:
         run: |
           set -e
           declare -A REPOS=(
-            ["theghostonline/PS5-LZ4-Compression"]="LZ4 Compression|lz4-compression.elf|Compression|LZ4 compression for games, done entirely on the PS5."
             ["juma-sayeh/PS5-Game-Compressor"]="Game Compressor|game-compressor.elf|Compression|Standalone PS5 payload for compressing, unpacking, validating, and repairing ShadowMountPlus-mounted games."
             ["Phoenixx1202/LegacyJB"]="LegacyJB|LegacyJB.elf|Jailbreak|PS5 payload that provides a jailbreak service for supported applications."
             ["notmaj0r/ProsperoMgr"]="Prospero Manager|ProsperoMgr.elf|Manager|All-In-One manager for your PS5."
             ["Phoenixx1202/Spectrum-Library"]="Spectrum Library|Spectrum-Library.elf|Library|Lightweight native PlayStation 5 content manager."
             ["pegasus-ps5/pegasus-dl"]="Pegasus DL|pegasus_dl.elf|Downloader|Direct package downloading from your PS5."
+            ["exFAT2AMPR/exfat2ampr"]="exFAT2AMPR|exfat2ampr.elf|Compression|Convert PS5 game dumps to AMPR LZ4."
           )
 
           echo '{' > payloads.json
