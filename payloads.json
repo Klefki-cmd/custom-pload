@@ -29,15 +29,6 @@
     }
 ,
     {
-      "name": "Pegasus DL",
-      "filename": "pegasus_dl.elf",
-      "url": "https://github.com/pegasus-ps5/pegasus-dl/releases/download/v1.11.0/pegasus_dl.elf",
-      "version": "v1.11.0",
-      "category": "Downloader",
-      "description": "Direct package downloading from your PS5."
-    }
-,
-    {
       "name": "exFAT2AMPR",
       "filename": "exfat2ampr.elf",
       "url": "https://github.com/exFAT2AMPR/exfat2ampr/releases/download/v1.104/exfat2ampr.elf",
