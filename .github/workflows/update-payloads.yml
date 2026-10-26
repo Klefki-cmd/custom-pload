@@ -42,7 +42,10 @@ jobs:
           ENTRIES="$WORK/entries.jsonl"
           : > "$ENTRIES"
 
-          for line in $CATALOG; do
+          # Iterate line by line: a for-loop over the string would also split
+          # on spaces, cutting descriptions and asset names apart.
+          while read -r line; do
+            [ -z "$line" ] && continue
             IFS='|' read -r PROVIDER REPO ID NAME FILEPAT CATEGORY DESC <<< "$line"
             case "$PROVIDER" in
               github)
@@ -115,7 +118,7 @@ jobs:
                  description:$description, version:$version, category:$category,
                  checksum:$checksum, last_update:$last_update,
                  source:$source, details_url:$details_url}' >> "$ENTRIES"
-          done
+          done <<< "$CATALOG"
 
           jq -s --arg catalog "My PS5 Payloads" \
              '{name: $catalog, payloads: .}' "$ENTRIES" > payloads.json
