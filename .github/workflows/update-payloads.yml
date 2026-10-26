@@ -21,16 +21,21 @@ jobs:
         run: |
           set -e
           # Payload catalog, one line per payload, fields separated by |:
-          #   owner/repo | stable id | display name | asset filename | category | description
-          # Source and README links are derived from the repo. Entries appear
-          # in payloads.json in this order. Add a line to add a payload.
+          #   provider | owner/repo | stable id | display name | asset filename | category | description
+          # provider is `github`, or `forgejo@HOST` for a self-hosted
+          # Forgejo/Gitea instance. API, source and README links are derived
+          # from the provider. GitHub publishes each asset's SHA-256 as the
+          # digest field; Forgejo releases ship a SHA256SUMS file. Entries
+          # appear in payloads.json in this order. Add a line to add a payload.
           CATALOG="
-          juma-sayeh/PS5-Game-Compressor|game-compressor|Game Compressor|game-compressor.elf|Compression|Standalone PS5 payload for compressing, unpacking, validating, and repairing ShadowMountPlus-mounted games.
-          Phoenixx1202/LegacyJB|legacyjb|LegacyJB|LegacyJB.elf|Jailbreak|PS5 payload that provides a jailbreak service for supported applications.
-          notmaj0r/ProsperoMgr|prospero-manager|Prospero Manager|ProsperoMgr.elf|Manager|All-In-One manager for your PS5.
-          Phoenixx1202/Spectrum-Library|spectrum-library|Spectrum Library|Spectrum-Library.elf|Library|Lightweight native PlayStation 5 content manager.
-          pegasus-ps5/pegasus-dl|pegasus-dl|Pegasus DL|pegasus_dl.elf|Downloader|Direct package downloading from your PS5.
-          exFAT2AMPR/exfat2ampr|exfat2ampr|exFAT2AMPR|exfat2ampr.elf|Compression|Convert PS5 game dumps to AMPR LZ4.
+          github|juma-sayeh/PS5-Game-Compressor|game-compressor|Game Compressor|game-compressor.elf|Compression|Standalone PS5 payload for compressing, unpacking, validating, and repairing ShadowMountPlus-mounted games.
+          github|Phoenixx1202/LegacyJB|legacyjb|LegacyJB|LegacyJB.elf|Jailbreak|PS5 payload that provides a jailbreak service for supported applications.
+          github|notmaj0r/ProsperoMgr|prospero-manager|Prospero Manager|ProsperoMgr.elf|Manager|All-In-One manager for your PS5.
+          github|Phoenixx1202/Spectrum-Library|spectrum-library|Spectrum Library|Spectrum-Library.elf|Library|Lightweight native PlayStation 5 content manager.
+          github|pegasus-ps5/pegasus-dl|pegasus-dl|Pegasus DL|pegasus_dl.elf|Downloader|Direct package downloading from your PS5.
+          github|exFAT2AMPR/exfat2ampr|exfat2ampr|exFAT2AMPR|exfat2ampr.elf|Compression|Convert PS5 game dumps to AMPR LZ4.
+          forgejo@theghostonline.dev|theghostonline/PS5-Game-Updater|ps5-game-updater|PS5 Game Updater|game-updater.elf|Installer|Update your installed PS5 games on the console. Finds the newest official update for each game and installs it, applying a backport when the update needs a newer firmware. No PC needed.
+          forgejo@theghostonline.dev|theghostonline/PS5-LZ4-Compression|lz4-compression|LZ4 Compression for PS5|lz4-compression.elf|Compression|Shrink PS5 games on the console into LZ4 asset packs that APR-EMU reads while the game runs. Every file is checked before anything is deleted.
           "
 
           WORK=$(mktemp -d)
@@ -38,9 +43,28 @@ jobs:
           : > "$ENTRIES"
 
           for line in $CATALOG; do
-            IFS='|' read -r REPO ID NAME FILEPAT CATEGORY DESC <<< "$line"
-            RELEASE=$(curl -s -H "Authorization: token $GH_TOKEN" \
-              "https://api.github.com/repos/$REPO/releases/latest")
+            IFS='|' read -r PROVIDER REPO ID NAME FILEPAT CATEGORY DESC <<< "$line"
+            case "$PROVIDER" in
+              github)
+                API="https://api.github.com/repos/$REPO"
+                AUTH=(-H "Authorization: token $GH_TOKEN")
+                SRC="https://github.com/$REPO"
+                DETAILS="https://raw.githubusercontent.com/$REPO/HEAD/README.md"
+                ;;
+              forgejo@*)
+                HOST=${PROVIDER#forgejo@}
+                API="https://$HOST/api/v1/repos/$REPO"
+                AUTH=()
+                SRC="https://$HOST/$REPO"
+                DETAILS="https://$HOST/$REPO/raw/branch/main/README.md"
+                ;;
+              *)
+                echo "Skipping $REPO (unknown provider $PROVIDER)" >&2
+                continue
+                ;;
+            esac
+
+            RELEASE=$(curl -s "${AUTH[@]}" "$API/releases/latest")
 
             TAG=$(echo "$RELEASE" | jq -r '.tag_name // empty')
             if [ -z "$TAG" ]; then
@@ -55,10 +79,24 @@ jobs:
               continue
             fi
 
-            # GitHub publishes each release asset's SHA-256 as "sha256:<hex>".
-            DIGEST=$(echo "$RELEASE" | jq -r --arg f "$FILEPAT" \
-              '.assets[] | select(.name == $f) | (.digest // "")' | head -n1)
-            CHECKSUM=${DIGEST#sha256:}
+            if [ "$PROVIDER" = "github" ]; then
+              # GitHub publishes each release asset's SHA-256 as "sha256:<hex>".
+              DIGEST=$(echo "$RELEASE" | jq -r --arg f "$FILEPAT" \
+                '.assets[] | select(.name == $f) | (.digest // "")' | head -n1)
+              CHECKSUM=${DIGEST#sha256:}
+            else
+              # Forgejo releases ship a SHA256SUMS file: hash + filename lines.
+              SUMS_URL=$(echo "$RELEASE" | jq -r \
+                '.assets[] | select(.name == "SHA256SUMS") | .browser_download_url' | head -n1)
+              CHECKSUM=""
+              if [ -n "$SUMS_URL" ]; then
+                CHECKSUM=$(curl -sL "$SUMS_URL" | awk -v f="$FILEPAT" '$2 == f {print $1}')
+              fi
+              if [ ${#CHECKSUM} -ne 64 ]; then
+                # Fallback: hash the asset itself, the bytes the console downloads.
+                CHECKSUM=$(curl -sL "$URL" | sha256sum | cut -d' ' -f1)
+              fi
+            fi
             # The manager accepts a checksum only as exactly 64 hex chars;
             # drop a malformed digest rather than rejecting the whole entry.
             if [ ${#CHECKSUM} -ne 64 ]; then CHECKSUM=""; fi
@@ -71,8 +109,8 @@ jobs:
             jq -n --arg id "$ID" --arg name "$NAME" --arg filename "$FILEPAT" \
                --arg url "$URL" --arg version "$TAG" --arg category "$CATEGORY" \
                --arg description "$DESC" --arg last_update "$PUBLISHED" \
-               --arg checksum "$CHECKSUM" --arg source "https://github.com/$REPO" \
-               --arg details_url "https://raw.githubusercontent.com/$REPO/HEAD/README.md" \
+               --arg checksum "$CHECKSUM" --arg source "$SRC" \
+               --arg details_url "$DETAILS" \
                '{id:$id, name:$name, filename:$filename, url:$url,
                  description:$description, version:$version, category:$category,
                  checksum:$checksum, last_update:$last_update,
