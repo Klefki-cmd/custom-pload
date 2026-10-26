@@ -20,56 +20,67 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          declare -A REPOS=(
-            ["juma-sayeh/PS5-Game-Compressor"]="Game Compressor|game-compressor.elf|Compression|Standalone PS5 payload for compressing, unpacking, validating, and repairing ShadowMountPlus-mounted games."
-            ["Phoenixx1202/LegacyJB"]="LegacyJB|LegacyJB.elf|Jailbreak|PS5 payload that provides a jailbreak service for supported applications."
-            ["notmaj0r/ProsperoMgr"]="Prospero Manager|ProsperoMgr.elf|Manager|All-In-One manager for your PS5."
-            ["Phoenixx1202/Spectrum-Library"]="Spectrum Library|Spectrum-Library.elf|Library|Lightweight native PlayStation 5 content manager."
-            ["pegasus-ps5/pegasus-dl"]="Pegasus DL|pegasus_dl.elf|Downloader|Direct package downloading from your PS5."
-            ["exFAT2AMPR/exfat2ampr"]="exFAT2AMPR|exfat2ampr.elf|Compression|Convert PS5 game dumps to AMPR LZ4."
-          )
+          # Payload catalog, one line per payload, fields separated by |:
+          #   owner/repo | stable id | display name | asset filename | category | description
+          # Source and README links are derived from the repo. Entries appear
+          # in payloads.json in this order. Add a line to add a payload.
+          CATALOG="
+          juma-sayeh/PS5-Game-Compressor|game-compressor|Game Compressor|game-compressor.elf|Compression|Standalone PS5 payload for compressing, unpacking, validating, and repairing ShadowMountPlus-mounted games.
+          Phoenixx1202/LegacyJB|legacyjb|LegacyJB|LegacyJB.elf|Jailbreak|PS5 payload that provides a jailbreak service for supported applications.
+          notmaj0r/ProsperoMgr|prospero-manager|Prospero Manager|ProsperoMgr.elf|Manager|All-In-One manager for your PS5.
+          Phoenixx1202/Spectrum-Library|spectrum-library|Spectrum Library|Spectrum-Library.elf|Library|Lightweight native PlayStation 5 content manager.
+          pegasus-ps5/pegasus-dl|pegasus-dl|Pegasus DL|pegasus_dl.elf|Downloader|Direct package downloading from your PS5.
+          exFAT2AMPR/exfat2ampr|exfat2ampr|exFAT2AMPR|exfat2ampr.elf|Compression|Convert PS5 game dumps to AMPR LZ4.
+          "
 
-          echo '{' > payloads.json
-          echo '  "name": "My PS5 Payloads",' >> payloads.json
-          echo '  "payloads": [' >> payloads.json
+          WORK=$(mktemp -d)
+          ENTRIES="$WORK/entries.jsonl"
+          : > "$ENTRIES"
 
-          FIRST=1
-          for repo in "${!REPOS[@]}"; do
-            IFS='|' read -r NAME FILEPAT CATEGORY DESC <<< "${REPOS[$repo]}"
+          for line in $CATALOG; do
+            IFS='|' read -r REPO ID NAME FILEPAT CATEGORY DESC <<< "$line"
             RELEASE=$(curl -s -H "Authorization: token $GH_TOKEN" \
-              "https://api.github.com/repos/$repo/releases/latest")
+              "https://api.github.com/repos/$REPO/releases/latest")
 
             TAG=$(echo "$RELEASE" | jq -r '.tag_name // empty')
             if [ -z "$TAG" ]; then
-              echo "Skipping $repo (no release)" >&2
+              echo "Skipping $REPO (no release)" >&2
               continue
             fi
 
             URL=$(echo "$RELEASE" | jq -r --arg f "$FILEPAT" \
               '.assets[] | select(.name == $f) | .browser_download_url' | head -n1)
-
             if [ -z "$URL" ]; then
-              echo "Skipping $repo (asset $FILEPAT not found)" >&2
+              echo "Skipping $REPO (asset $FILEPAT not found)" >&2
               continue
             fi
 
-            if [ $FIRST -eq 0 ]; then echo ',' >> payloads.json; fi
-            FIRST=0
+            # GitHub publishes each release asset's SHA-256 as "sha256:<hex>".
+            DIGEST=$(echo "$RELEASE" | jq -r --arg f "$FILEPAT" \
+              '.assets[] | select(.name == $f) | (.digest // "")' | head -n1)
+            CHECKSUM=${DIGEST#sha256:}
+            # The manager accepts a checksum only as exactly 64 hex chars;
+            # drop a malformed digest rather than rejecting the whole entry.
+            if [ ${#CHECKSUM} -ne 64 ]; then CHECKSUM=""; fi
 
-            cat >> payloads.json <<EOF
-              {
-                "name": "$NAME",
-                "filename": "$FILEPAT",
-                "url": "$URL",
-                "version": "$TAG",
-                "category": "$CATEGORY",
-                "description": "$DESC"
-              }
-          EOF
+            # ISO 8601 published_at doubles as last_update, the tie-breaker
+            # the manager uses when two versions compare equal.
+            PUBLISHED=$(echo "$RELEASE" | jq -r '.published_at // ""')
+
+            # jq builds each entry so every field is JSON-escaped.
+            jq -n --arg id "$ID" --arg name "$NAME" --arg filename "$FILEPAT" \
+               --arg url "$URL" --arg version "$TAG" --arg category "$CATEGORY" \
+               --arg description "$DESC" --arg last_update "$PUBLISHED" \
+               --arg checksum "$CHECKSUM" --arg source "https://github.com/$REPO" \
+               --arg details_url "https://raw.githubusercontent.com/$REPO/HEAD/README.md" \
+               '{id:$id, name:$name, filename:$filename, url:$url,
+                 description:$description, version:$version, category:$category,
+                 checksum:$checksum, last_update:$last_update,
+                 source:$source, details_url:$details_url}' >> "$ENTRIES"
           done
 
-          echo '  ]' >> payloads.json
-          echo '}' >> payloads.json
+          jq -s --arg catalog "My PS5 Payloads" \
+             '{name: $catalog, payloads: .}' "$ENTRIES" > payloads.json
 
           cat payloads.json
 
