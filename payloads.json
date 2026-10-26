@@ -2,11 +2,24 @@
   "name": "My PS5 Payloads",
   "payloads": [
     {
+      "id": "game-compressor",
+      "name": "Game Compressor",
+      "filename": "game-compressor.elf",
+      "url": "https://github.com/juma-sayeh/PS5-Game-Compressor/releases/download/v1.0.4/game-compressor.elf",
+      "description": "Standalone PS5 payload for compressing, unpacking, validating, and repairing ShadowMountPlus-mounted games.",
+      "version": "v1.0.4",
+      "category": "Compression",
+      "checksum": "e55e90aaade13b6e0d4316c1597ef90a21b67a06475c3e25de054224bc1e941b",
+      "last_update": "2026-08-21T20:44:07Z",
+      "source": "https://github.com/juma-sayeh/PS5-Game-Compressor",
+      "details_url": "https://raw.githubusercontent.com/juma-sayeh/PS5-Game-Compressor/HEAD/README.md"
+    },
+    {
       "id": "legacyjb",
       "name": "LegacyJB",
       "filename": "LegacyJB.elf",
       "url": "https://github.com/Phoenixx1202/LegacyJB/releases/download/1.2.1/LegacyJB.elf",
-      "description": "PS5",
+      "description": "PS5 payload that provides a jailbreak service for supported applications.",
       "version": "1.2.1",
       "category": "Jailbreak",
       "checksum": "7633372f39a7a6e460f3990b02cd07026f4e5591aefd2509f8c6338f03b8440b",
@@ -15,17 +28,56 @@
       "details_url": "https://raw.githubusercontent.com/Phoenixx1202/LegacyJB/HEAD/README.md"
     },
     {
+      "id": "prospero-manager",
+      "name": "Prospero Manager",
+      "filename": "ProsperoMgr.elf",
+      "url": "https://github.com/notmaj0r/ProsperoMgr/releases/download/v1.1/ProsperoMgr.elf",
+      "description": "All-In-One manager for your PS5.",
+      "version": "v1.1",
+      "category": "Manager",
+      "checksum": "e7a6bb544adb2fb2a61aa9cc83b0ad15f70b32d7511a3de0f1fb88812f11983c",
+      "last_update": "2026-09-28T19:32:33Z",
+      "source": "https://github.com/notmaj0r/ProsperoMgr",
+      "details_url": "https://raw.githubusercontent.com/notmaj0r/ProsperoMgr/HEAD/README.md"
+    },
+    {
       "id": "exfat2ampr",
       "name": "exFAT2AMPR",
       "filename": "exfat2ampr.elf",
       "url": "https://github.com/exFAT2AMPR/exfat2ampr/releases/download/v1.104/exfat2ampr.elf",
-      "description": "Convert",
+      "description": "Convert PS5 game dumps to AMPR LZ4.",
       "version": "v1.104",
       "category": "Compression",
       "checksum": "ffc0956937077c29d7afdf60c9a01b62fa23034d2b50013608139b57f8b90d16",
       "last_update": "2026-10-14T14:03:23Z",
       "source": "https://github.com/exFAT2AMPR/exfat2ampr",
       "details_url": "https://raw.githubusercontent.com/exFAT2AMPR/exfat2ampr/HEAD/README.md"
+    },
+    {
+      "id": "ps5-game-updater",
+      "name": "PS5 Game Updater",
+      "filename": "game-updater.elf",
+      "url": "https://theghostonline.dev/theghostonline/PS5-Game-Updater/releases/download/v1.1.1/game-updater.elf",
+      "description": "Update your installed PS5 games on the console. Finds the newest official update for each game and installs it, applying a backport when the update needs a newer firmware. No PC needed.",
+      "version": "v1.1.1",
+      "category": "Installer",
+      "checksum": "a4a8385b00813134b785d93ef10987a56fe262851db8e787ce6d4b624d29100d",
+      "last_update": "2026-10-26T02:52:48Z",
+      "source": "https://theghostonline.dev/theghostonline/PS5-Game-Updater",
+      "details_url": "https://theghostonline.dev/theghostonline/PS5-Game-Updater/raw/branch/main/README.md"
+    },
+    {
+      "id": "lz4-compression",
+      "name": "LZ4 Compression for PS5",
+      "filename": "lz4-compression.elf",
+      "url": "https://theghostonline.dev/theghostonline/PS5-LZ4-Compression/releases/download/v1.6.4/lz4-compression.elf",
+      "description": "Shrink PS5 games on the console into LZ4 asset packs that APR-EMU reads while the game runs. Every file is checked before anything is deleted.",
+      "version": "v1.6.4",
+      "category": "Compression",
+      "checksum": "a7c1a956ebddfc92851822b7d0e71e22fa98fd69758bc17b77043b338bd495a4",
+      "last_update": "2026-10-26T02:34:12Z",
+      "source": "https://theghostonline.dev/theghostonline/PS5-LZ4-Compression",
+      "details_url": "https://theghostonline.dev/theghostonline/PS5-LZ4-Compression/raw/branch/main/README.md"
     }
   ]
 }
