@@ -79,5 +79,15 @@
       "source": "https://theghostonline.dev/theghostonline/PS5-LZ4-Compression",
       "details_url": "https://theghostonline.dev/theghostonline/PS5-LZ4-Compression/raw/branch/main/README.md"
     }
+  ],
+  "skipped": [
+    {
+      "url": "https://github.com/Phoenixx1202/Spectrum-Library",
+      "reason": "No ELF payload: release 1.4.9 ships only Void.pkg, a 4-byte placeholder. Nothing Payload Manager can launch."
+    },
+    {
+      "url": "https://github.com/pegasus-ps5/pegasus-dl",
+      "reason": "No ELF payload: releases from native-v2.0.3 ship native-release.json/.sig + PPSA99998.ffpfsc. Pegasus DL installs as a native app through its own updater."
+    }
   ]
 }
