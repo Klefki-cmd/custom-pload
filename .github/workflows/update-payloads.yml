@@ -21,81 +21,123 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -e
+          # set -eu, NOT pipefail: `jq ... | head -n1` makes jq catch SIGPIPE
+          # (exit 141), and pipefail would propagate that as a job failure.
+          set -eu
+          WORK=$(mktemp -d)
+          ENTRIES="$WORK/entries.jsonl"; : > "$ENTRIES"
+          SKIPS="$WORK/skips.jsonl"; : > "$SKIPS"
+          RUN_LOG="$WORK/run.log"; : > "$RUN_LOG"
+          SKIP_LOG="$WORK/skips.log"; : > "$SKIP_LOG"
+
           # Payload catalog, one line per payload, fields separated by |:
-          #   provider | owner/repo | stable id | display name | asset filename | category | description
-          # provider is `github`, or `forgejo@HOST` for a self-hosted
-          # Forgejo/Gitea instance. API, source and README links are derived
-          # from the provider. GitHub publishes each asset's SHA-256 as the
-          # digest field; Forgejo releases ship a SHA256SUMS file. Entries
-          # appear in payloads.json in this order. Add a line to add a payload.
+          #   provider | owner/repo | stable id | display name | asset REGEX | category | description
+          # provider is `github`, or `forgejo@HOST` for a self-hosted Forgejo/Gitea.
+          # API, source and README links are derived from the provider.
+          # The asset field is a Go regexp (jq `test()`), not an exact filename:
+          # a renamed asset fails loudly into the skipped list instead of vanishing.
+          # Payload Manager accepts only .elf/.bin as launchable, so the regex must
+          # match the payload binary, never a .pkg / .ffpkg / .ffpfsc / .zip.
+          # Entries appear in payloads.json in this order. Add a line to add a payload.
           CATALOG="
-          github|juma-sayeh/PS5-Game-Compressor|game-compressor|Game Compressor|game-compressor.elf|Compression|Standalone PS5 payload for compressing, unpacking, validating, and repairing ShadowMountPlus-mounted games.
-          github|Phoenixx1202/LegacyJB|legacyjb|LegacyJB|LegacyJB.elf|Jailbreak|PS5 payload that provides a jailbreak service for supported applications.
-          github|notmaj0r/ProsperoMgr|prospero-manager|Prospero Manager|ProsperoMgr.elf|Manager|All-In-One manager for your PS5.
-          github|Phoenixx1202/Spectrum-Library|spectrum-library|Spectrum Library|Spectrum-Library.elf|Library|Lightweight native PlayStation 5 content manager.
-          github|pegasus-ps5/pegasus-dl|pegasus-dl|Pegasus DL|pegasus_dl.elf|Downloader|Direct package downloading from your PS5.
-          github|exFAT2AMPR/exfat2ampr|exfat2ampr|exFAT2AMPR|exfat2ampr.elf|Compression|Convert PS5 game dumps to AMPR LZ4.
-          forgejo@theghostonline.dev|theghostonline/PS5-Game-Updater|ps5-game-updater|PS5 Game Updater|game-updater.elf|Installer|Update your installed PS5 games on the console. Finds the newest official update for each game and installs it, applying a backport when the update needs a newer firmware. No PC needed.
-          forgejo@theghostonline.dev|theghostonline/PS5-LZ4-Compression|lz4-compression|LZ4 Compression for PS5|lz4-compression.elf|Compression|Shrink PS5 games on the console into LZ4 asset packs that APR-EMU reads while the game runs. Every file is checked before anything is deleted.
+          github|juma-sayeh/PS5-Game-Compressor|game-compressor|Game Compressor|game-compressor\.elf|Compression|Standalone PS5 payload for compressing, unpacking, validating, and repairing ShadowMountPlus-mounted games.
+          github|Phoenixx1202/LegacyJB|legacyjb|LegacyJB|LegacyJB\.elf|Jailbreak|PS5 payload that provides a jailbreak service for supported applications.
+          github|notmaj0r/ProsperoMgr|prospero-manager|Prospero Manager|ProsperoMgr\.elf|Manager|All-In-One manager for your PS5.
+          github|exFAT2AMPR/exfat2ampr|exfat2ampr|exFAT2AMPR|exfat2ampr\.elf|Compression|Convert PS5 game dumps to AMPR LZ4.
+          forgejo@theghostonline.dev|theghostonline/PS5-Game-Updater|ps5-game-updater|PS5 Game Updater|game-updater\.elf|Installer|Update your installed PS5 games on the console. Finds the newest official update for each game and installs it, applying a backport when the update needs a newer firmware. No PC needed.
+          forgejo@theghostonline.dev|theghostonline/PS5-LZ4-Compression|lz4-compression|LZ4 Compression for PS5|lz4-compression\.elf|Compression|Shrink PS5 games on the console into LZ4 asset packs that APR-EMU reads while the game runs. Every file is checked before anything is deleted.
           "
 
-          WORK=$(mktemp -d)
-          ENTRIES="$WORK/entries.jsonl"
-          : > "$ENTRIES"
+          # Hand-authored records for upstreams that no longer ship an installable
+          # payload: provider | owner/repo | reason. Kept out of CATALOG so they are
+          # not parsed as installable, recorded in payloads.json under "skipped".
+          # A skipped entry carries ONLY url + reason. Adding name/filename/url-as-
+          # asset makes the Payload Manager parser ingest it as a payload, which is
+          # exactly what must not happen.
+          SKIPPED="
+          github|Phoenixx1202/Spectrum-Library|No ELF payload: release 1.4.9 ships only Void.pkg, a 4-byte placeholder. Nothing Payload Manager can launch.
+          github|pegasus-ps5/pegasus-dl|No ELF payload: releases from native-v2.0.3 ship native-release.json/.sig + PPSA99998.ffpfsc. Pegasus DL installs as a native app through its own updater.
+          "
 
-          # Iterate line by line: a for-loop over the string would also split
-          # on spaces, cutting descriptions and asset names apart.
-          while read -r line; do
-            [ -z "$line" ] && continue
-            IFS='|' read -r PROVIDER REPO ID NAME FILEPAT CATEGORY DESC <<< "$line"
-            case "$PROVIDER" in
+          # Derive provider-specific URLs, API base and auth header.
+          provider_urls() {
+            case "$1" in
               github)
-                API="https://api.github.com/repos/$REPO"
+                API="https://api.github.com/repos/$2"
                 AUTH=(-H "Authorization: token $GH_TOKEN")
-                SRC="https://github.com/$REPO"
-                DETAILS="https://raw.githubusercontent.com/$REPO/HEAD/README.md"
+                SRC="https://github.com/$2"
+                DETAILS="https://raw.githubusercontent.com/$2/HEAD/README.md"
                 ;;
               forgejo@*)
-                HOST=${PROVIDER#forgejo@}
-                API="https://$HOST/api/v1/repos/$REPO"
+                HOST=${1#forgejo@}
+                API="https://$HOST/api/v1/repos/$2"
                 AUTH=()
-                SRC="https://$HOST/$REPO"
-                DETAILS="https://$HOST/$REPO/raw/branch/main/README.md"
+                SRC="https://$HOST/$2"
+                DETAILS="https://$HOST/$2/raw/branch/main/README.md"
                 ;;
-              *)
-                echo "Skipping $REPO (unknown provider $PROVIDER)" >&2
-                continue
-                ;;
+              *) return 1 ;;
             esac
+          }
 
-            RELEASE=$(curl -s "${AUTH[@]}" "$API/releases/latest")
+          # Record a gap: stderr for the log, url+reason into the skipped array,
+          # and a line in the job summary. Every skip is loud, never silent.
+          record_skip() {
+            local src=$1 reason=$2
+            echo "SKIP $src: $reason" >&2
+            jq -n --arg url "$src" --arg reason "$reason" '{url:$url, reason:$reason}' >> "$SKIPS"
+            echo "- **$src** — skipped: $reason" >> "$SKIP_LOG"
+          }
 
-            TAG=$(echo "$RELEASE" | jq -r '.tag_name // empty')
+          # Iterate line by line: a for-loop over the string would split
+          # descriptions and asset names on spaces.
+          while read -r line; do
+            [ -z "$line" ] && continue
+            IFS='|' read -r PROVIDER REPO ID NAME PAT CATEGORY DESC <<< "$line"
+            if ! provider_urls "$PROVIDER" "$REPO"; then
+              record_skip "https://$PROVIDER/$REPO" "unknown provider '$PROVIDER'"
+              continue
+            fi
+
+            # Status-code check first: a 404/403 body parses as JSON with no
+            # tag_name, which the old script reported as a bare "no release".
+            STATUS=$(curl -s -o "$WORK/rel.json" -w '%{http_code}' "${AUTH[@]}" "$API/releases/latest")
+            if [ "$STATUS" != "200" ]; then
+              record_skip "$SRC" "release API returned HTTP $STATUS"
+              continue
+            fi
+
+            TAG=$(jq -r '.tag_name // empty' "$WORK/rel.json")
             if [ -z "$TAG" ]; then
-              echo "Skipping $REPO (no release)" >&2
+              record_skip "$SRC" "latest release has no tag_name"
               continue
             fi
 
-            URL=$(echo "$RELEASE" | jq -r --arg f "$FILEPAT" \
-              '.assets[] | select(.name == $f) | .browser_download_url' | head -n1)
-            if [ -z "$URL" ]; then
-              echo "Skipping $REPO (asset $FILEPAT not found)" >&2
+            # First asset whose name matches the regex, restricted to the
+            # launchable payload extensions.
+            ASSET=$(jq -r --arg pat "$PAT" \
+              '.assets[] | select(.name | test($pat)) | select(.name | test("\\.(elf|bin)$")) | .name' \
+              "$WORK/rel.json" | head -n1)
+            if [ -z "$ASSET" ]; then
+              ASSET_LIST=$(jq -r '[.assets[].name] | join(", ")' "$WORK/rel.json")
+              record_skip "$SRC" "no asset matching /$PAT/ in release $TAG (assets present: $ASSET_LIST)"
               continue
             fi
+
+            URL=$(jq -r --arg f "$ASSET" \
+              '.assets[] | select(.name == $f) | .browser_download_url' "$WORK/rel.json" | head -n1)
 
             if [ "$PROVIDER" = "github" ]; then
               # GitHub publishes each release asset's SHA-256 as "sha256:<hex>".
-              DIGEST=$(echo "$RELEASE" | jq -r --arg f "$FILEPAT" \
-                '.assets[] | select(.name == $f) | (.digest // "")' | head -n1)
+              DIGEST=$(jq -r --arg f "$ASSET" \
+                '.assets[] | select(.name == $f) | (.digest // "")' "$WORK/rel.json" | head -n1)
               CHECKSUM=${DIGEST#sha256:}
             else
               # Forgejo releases ship a SHA256SUMS file: hash + filename lines.
-              SUMS_URL=$(echo "$RELEASE" | jq -r \
-                '.assets[] | select(.name == "SHA256SUMS") | .browser_download_url' | head -n1)
+              SUMS_URL=$(jq -r '.assets[] | select(.name == "SHA256SUMS") | .browser_download_url' \
+                "$WORK/rel.json" | head -n1)
               CHECKSUM=""
               if [ -n "$SUMS_URL" ]; then
-                CHECKSUM=$(curl -sL "$SUMS_URL" | awk -v f="$FILEPAT" '$2 == f {print $1}')
+                CHECKSUM=$(curl -sL "$SUMS_URL" | awk -v f="$ASSET" '$2 == f {print $1}')
               fi
               if [ ${#CHECKSUM} -ne 64 ]; then
                 # Fallback: hash the asset itself, the bytes the console downloads.
@@ -108,10 +150,10 @@ jobs:
 
             # ISO 8601 published_at doubles as last_update, the tie-breaker
             # the manager uses when two versions compare equal.
-            PUBLISHED=$(echo "$RELEASE" | jq -r '.published_at // ""')
+            PUBLISHED=$(jq -r '.published_at // ""' "$WORK/rel.json")
 
             # jq builds each entry so every field is JSON-escaped.
-            jq -n --arg id "$ID" --arg name "$NAME" --arg filename "$FILEPAT" \
+            jq -n --arg id "$ID" --arg name "$NAME" --arg filename "$ASSET" \
                --arg url "$URL" --arg version "$TAG" --arg category "$CATEGORY" \
                --arg description "$DESC" --arg last_update "$PUBLISHED" \
                --arg checksum "$CHECKSUM" --arg source "$SRC" \
@@ -120,10 +162,48 @@ jobs:
                  description:$description, version:$version, category:$category,
                  checksum:$checksum, last_update:$last_update,
                  source:$source, details_url:$details_url}' >> "$ENTRIES"
+            echo "- **$ID** $TAG / \`$ASSET\` / checksum \`${CHECKSUM:0:8}\`" >> "$RUN_LOG"
           done <<< "$CATALOG"
 
+          # Hand-authored skips get merged in after any dynamic ones.
+          while read -r line; do
+            [ -z "$line" ] && continue
+            IFS='|' read -r PROVIDER REPO REASON <<< "$line"
+            provider_urls "$PROVIDER" "$REPO" || continue
+            jq -n --arg url "$SRC" --arg reason "$REASON" '{url:$url, reason:$reason}' >> "$SKIPS"
+            echo "- **$SRC** — skipped: $REASON" >> "$SKIP_LOG"
+          done <<< "$SKIPPED"
+
+          # Refuse to publish an empty catalog: an empty payloads.json would wipe
+          # every source entry on the console, and a silent skip is worse.
+          if [ ! -s "$ENTRIES" ]; then
+            echo "No payloads produced; refusing to overwrite payloads.json." >&2
+            cat "$RUN_LOG" "$SKIP_LOG" >&2
+            exit 1
+          fi
+
+          # jq -s on an empty file yields [], so a clean run keeps "skipped": [].
+          # The key order matches what Payload Manager expects; "skipped" is a
+          # top-level key the client ignores.
           jq -s --arg catalog "My PS5 Payloads" \
-             '{name: $catalog, payloads: .}' "$ENTRIES" > payloads.json
+             --argjson skips "$(jq -s '.' "$SKIPS")" \
+             '{name: $catalog, payloads: ., skipped: $skips}' "$ENTRIES" > payloads.json
+
+          # Loud CI summary: every catalog line, published or skipped.
+          {
+            echo "### Payload catalog refresh"
+            echo
+            echo "| id | version | asset | checksum |"
+            echo "| --- | --- | --- | --- |"
+            jq -r '["" + .id, .version, .filename, (if .checksum == "" then "*(empty)*" else .checksum[0:8] + "…" end)] | join(" | ") | "| " + . + " |"' "$ENTRIES"
+            echo
+            echo "Published $(jq -s 'length' "$ENTRIES") payloads, $(jq -s 'length' "$SKIPS") skipped."
+            echo
+            if [ -s "$SKIP_LOG" ]; then
+              echo "### Gaps (recorded in payloads.json under \`skipped\`)"
+              cat "$SKIP_LOG"
+            fi
+          } > "${GITHUB_STEP_SUMMARY:-/dev/null}"
 
           cat payloads.json
 
@@ -132,6 +212,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add payloads.json
-          git diff --staged --quiet || git commit -m "chore: update payloads.json"
-          git pull --rebase origin main
-          git push
+          # Commit first, then rebase, then push. `git pull --rebase` refuses to
+          # run against a dirty index, so pulling before committing fails.
+          git diff --staged --quiet || { git commit -m "chore: update payloads.json"; git pull --rebase origin main; git push; }
