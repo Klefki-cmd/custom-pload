@@ -61,7 +61,7 @@
       "description": "Update your installed PS5 games on the console. Finds the newest official update for each game and installs it, applying a backport when the update needs a newer firmware. No PC needed.",
       "version": "v1.1.2",
       "category": "Installer",
-      "checksum": "f7d3f839e05f3925d29fef5666ff15d669015bf6f154f82f9ced0bb4443bfc02",
+      "checksum": "3a21c41c901c29536e3e1a303861f8d4000c76957f52ea482eff8220d125759c",
       "last_update": "2026-10-28T00:13:46Z",
       "source": "https://theghostonline.dev/theghostonline/PS5-Game-Updater",
       "details_url": "https://theghostonline.dev/theghostonline/PS5-Game-Updater/raw/branch/main/README.md"
@@ -74,7 +74,7 @@
       "description": "Shrink PS5 games on the console into LZ4 asset packs that APR-EMU reads while the game runs. Every file is checked before anything is deleted.",
       "version": "v1.6.4",
       "category": "Compression",
-      "checksum": "f7d3f839e05f3925d29fef5666ff15d669015bf6f154f82f9ced0bb4443bfc02",
+      "checksum": "a7c1a956ebddfc92851822b7d0e71e22fa98fd69758bc17b77043b338bd495a4",
       "last_update": "2026-10-26T02:34:12Z",
       "source": "https://theghostonline.dev/theghostonline/PS5-LZ4-Compression",
       "details_url": "https://theghostonline.dev/theghostonline/PS5-LZ4-Compression/raw/branch/main/README.md"
